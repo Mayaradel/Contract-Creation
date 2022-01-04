@@ -1,0 +1,88 @@
+// SPDX-License-Identifier: GPL-3.0
+pragma solidity >=0.7.0 <0.9.0;
+
+contract Contract_2{
+    address manager;
+    address public player1;
+    address public player2;
+    uint public reward;
+
+    mapping (address => bytes32) public commits;
+    mapping (address => string) public decisions;
+    mapping (address => uint) public rewards;
+
+    uint public count;
+
+
+    error NotPlayer();
+
+    modifier checkPlayersAddress(address addr){
+        require(addr == player1 || addr == player2,"not player");
+        _;
+    }
+
+    constructor(address player_1, address player_2) payable {
+        player1 = player_1;
+        player2 = player_2;
+        reward = msg.value;
+    }
+
+    function commit(bytes32 hash) external checkPlayersAddress(msg.sender)
+    {
+        commits[msg.sender] = hash;
+    }
+
+    function reveal(string calldata decision, string calldata nonce) external
+    {
+        if(keccak256(abi.encodePacked(msg.sender, decision, nonce)) == commits[msg.sender]){
+            decisions[msg.sender] = decision;
+            count+=1;
+            if(count == 2){
+                rps(decisions[player1], decisions[player2]);
+            }
+        }
+    }
+
+    function rps(string memory d1, string memory d2) internal
+    {
+        bytes32 dec1 =  keccak256(abi.encodePacked(d1));
+        bytes32 dec2 =  keccak256(abi.encodePacked(d2));
+        bytes32 rock =  keccak256(abi.encodePacked("rock"));
+        bytes32 paper =  keccak256(abi.encodePacked("paper"));
+        bytes32 scissors =  keccak256(abi.encodePacked("scissors"));
+
+
+        if((dec1 == rock && dec2 == rock) ||
+        (dec1 == paper && dec2 == paper) || 
+        (dec1 == scissors && dec2 == scissors)){
+            rewards[player1] = reward / 2;
+            rewards[player2] = reward / 2;
+            reward = 0;
+        }
+            
+        else if((dec1 == rock && dec2 == paper) || 
+        (dec1 == paper && dec2 == scissors) || 
+        (dec1 == scissors && dec2 == rock)){
+            rewards[player2] = reward;
+            rewards[player1] = 0;
+            reward = 0;
+        }
+            
+        else if((dec1 == paper && dec2 == rock ) || 
+        (dec1 == scissors && dec2 == paper) || 
+        (dec1 == rock && dec2 == scissors)){
+            rewards[player1] = reward;
+            rewards[player2] = 0;
+            reward = 0;
+        } 
+    }
+
+    function withdraw() external
+        {
+            uint amount = rewards[msg.sender];
+            if(amount > 0){
+                rewards[msg.sender] = 0;
+                payable(msg.sender).transfer(amount);
+            }
+        }   
+}
